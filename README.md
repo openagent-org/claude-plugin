@@ -21,18 +21,35 @@ After installation, start a new Claude session and ask to open the OpenAgent new
 
 ## Update
 
-Follow the installation guide again to verify your source and update the installation. The guide also covers migration from the previous official `master` sources to GitHub `rel`.
+Follow the installation guide again to verify your source and update the installation. The guide also covers migration from the previous official `master` sources to an official `rel` source.
 
 ## Uninstall
 
-Quit Claude Desktop, then download and run the official uninstaller in a terminal:
+Quit Claude Desktop, then download and run the official uninstaller in a terminal. Downloads prefer GitHub, with Gitee as the fallback. Only DNS, connection, timeout, interrupted-transfer, or HTTP 5xx failures permit one fallback attempt. Stop on permission or approval denial, certificate errors, HTTP 401/403/404/429/451, or digest, syntax, execution, or OAuth errors. Stop if the fallback also fails.
+
+The assistant retains the selected source and public full SHA in the conversation. Set `uninstall_source` to that source and keep `uninstall_sha` empty only before the first resolution. If resolution fails before a SHA is known, the fallback may determine it; after resolution, reuse the same SHA and path without resolving the fallback `rel` again. An existing valid official source may continue without being forced back to GitHub; when starting from a previously installed Gitee source, the other official source is the fallback. Never switch back after using the one fallback. Download completely, check syntax, then execute once. Never pipe downloads into execution or switch sources after execution has started or its result is unknown:
 
 ```bash
 (
   set -e
+  uninstall_source='github'
+  uninstall_sha=''
+  case "$uninstall_source" in
+    github) uninstall_repo='https://github.com/openagent-org/claude-plugin.git'; uninstall_raw='https://raw.githubusercontent.com/openagent-org/claude-plugin' ;;
+    gitee) uninstall_repo='https://gitee.com/openagent-org/claude-plugin.git'; uninstall_raw='https://gitee.com/openagent-org/claude-plugin/raw' ;;
+    *) exit 1 ;;
+  esac
+  if [ -z "$uninstall_sha" ]; then
+    uninstall_ref="$(git ls-remote "$uninstall_repo" refs/heads/rel)"
+    uninstall_sha="${uninstall_ref%%[[:space:]]*}"
+  fi
+  case "$uninstall_sha" in ''|*[!0-9a-f]*) exit 1 ;; esac
+  [ "${#uninstall_sha}" -eq 40 ]
+  printf 'OPENAGENT_SOURCE=%s\nOPENAGENT_REF=%s\n' "$uninstall_source" "$uninstall_sha"
   uninstall_file="$(mktemp "${TMPDIR:-/tmp}/openagent-claude-uninstall.XXXXXX")"
   trap 'rm -f -- "$uninstall_file"' EXIT
-  curl -fsSL --proto '=https' --proto-redir '=https' 'https://raw.githubusercontent.com/openagent-org/claude-plugin/rel/uninstall-openagent.sh' -o "$uninstall_file"
+  curl -fsSL --proto '=https' --proto-redir '=https' "$uninstall_raw/$uninstall_sha/uninstall-openagent.sh" -o "$uninstall_file"
+  bash -n "$uninstall_file"
   bash "$uninstall_file"
 )
 ```

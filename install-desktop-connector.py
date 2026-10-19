@@ -30,13 +30,17 @@ MARKETPLACE = {
     "expectedName": "openagent-claude",
 }
 LEGACY_MARKETPLACE_URL = "https://oasn-ow.haimawan.com/git/openagent/claude-plugin.git"
+MARKETPLACE_URLS = {
+    "github": MARKETPLACE["url"],
+    "gitee": "https://gitee.com/openagent-org/claude-plugin.git",
+}
 
 
-def marketplace_ref() -> str:
+def marketplace_ref(source: str = "github") -> str:
     """解析发布分支的完整提交，以满足 3P Marketplace 自动安装的固定版本要求。"""
     try:
         result = subprocess.run(
-            ["git", "ls-remote", MARKETPLACE["url"], "refs/heads/rel"],
+            ["git", "ls-remote", MARKETPLACE_URLS[source], "refs/heads/rel"],
             capture_output=True, text=True, timeout=60, check=False,
         )
     except (OSError, subprocess.TimeoutExpired) as error:
@@ -113,11 +117,11 @@ def write_helper(destination: Path, payload: bytes) -> bool:
 
 
 def install(config_dir: Path, helper_dir: Path = None, helper_source: Path = None,
-            resolve_ref=None) -> str:
+            resolve_ref=None, source: str = None) -> str:
     """增量安装 Connector 和插件源；冲突不写，更新前备份且保留其他配置。"""
     explicit_ref = resolve_ref is not None
-    if resolve_ref is None:
-        resolve_ref = marketplace_ref
+    if source is not None and source not in MARKETPLACE_URLS:
+        raise ValueError("插件来源只能是 github 或 gitee")
     if helper_dir is None:
         helper_dir = Path.home() / "Library/Application Support/OpenAgent/Claude"
     helper = helper_dir / HELPER_NAME
@@ -135,30 +139,40 @@ def install(config_dir: Path, helper_dir: Path = None, helper_source: Path = Non
     marketplaces = profile.get("allowedPluginMarketplaces", [])
     if not isinstance(marketplaces, list) or not all(isinstance(item, dict) for item in marketplaces):
         raise ValueError("allowedPluginMarketplaces 不是插件源列表，停止修改")
-    matching = [item for item in marketplaces if item.get("url") in (MARKETPLACE["url"], LEGACY_MARKETPLACE_URL)
+    official_urls = (*MARKETPLACE_URLS.values(), LEGACY_MARKETPLACE_URL)
+    matching = [item for item in marketplaces if item.get("url") in official_urls
                 or item.get("expectedName") == MARKETPLACE["expectedName"]]
     if matching and (len(matching) != 1 or matching[0].get("source") != "git"
-            or matching[0].get("url") not in (MARKETPLACE["url"], LEGACY_MARKETPLACE_URL)
+            or matching[0].get("url") not in official_urls
             or matching[0].get("expectedName", MARKETPLACE["expectedName"]) != MARKETPLACE["expectedName"]):
         raise ValueError("已有冲突的 OpenAgent 插件源，停止覆盖")
     existing_marketplace = matching[0] if matching else None
+    if source is None:
+        source = next((name for name, url in MARKETPLACE_URLS.items()
+                       if existing_marketplace and existing_marketplace.get("url") == url), "github")
+    selected_marketplace = {**MARKETPLACE, "url": MARKETPLACE_URLS[source]}
+    if resolve_ref is None:
+        resolve_ref = lambda: marketplace_ref(source)
     pinned = existing_marketplace and (existing_marketplace.get("installationPreference") == "auto_install"
                                       and re.fullmatch(r"[0-9a-fA-F]{40}", str(existing_marketplace.get("ref", ""))))
     migrating_marketplace = existing_marketplace and existing_marketplace.get("url") == LEGACY_MARKETPLACE_URL
-    if pinned and not migrating_marketplace and not explicit_ref:
+    switching_source = existing_marketplace and existing_marketplace.get("url") != selected_marketplace["url"]
+    if pinned and not switching_source and not explicit_ref:
         marketplace_action = ""
     else:
         if existing_marketplace and not pinned and (existing_marketplace.get("ref") not in ("master", "rel") or
                 existing_marketplace.get("installationPreference", "available") != "available"):
             raise ValueError("已有冲突的 OpenAgent 插件源，停止覆盖")
-        pinned_marketplace = {**(existing_marketplace or {}), **MARKETPLACE,
-                              "ref": resolve_ref(), "installationPreference": "auto_install"}
+        ref = existing_marketplace["ref"] if pinned and not explicit_ref and not migrating_marketplace else resolve_ref()
+        pinned_marketplace = {**(existing_marketplace or {}), **selected_marketplace,
+                              "ref": ref, "installationPreference": "auto_install"}
         marketplace_action = ""
         if pinned_marketplace != existing_marketplace:
             profile["allowedPluginMarketplaces"] = [
                 pinned_marketplace if item is existing_marketplace else item for item in marketplaces
             ] if existing_marketplace else [*marketplaces, pinned_marketplace]
-            marketplace_action = "迁移 OpenAgent 插件源至 GitHub" if migrating_marketplace else "更新 OpenAgent 插件自动安装提交"
+            marketplace_action = (f"迁移 OpenAgent 插件源至 {'GitHub' if source == 'github' else 'Gitee'}"
+                                  if switching_source else "更新 OpenAgent 插件自动安装提交")
     servers = profile.get("managedMcpServers", [])
     if not isinstance(servers, list) or not all(isinstance(item, dict) for item in servers):
         raise ValueError("managedMcpServers 不是服务器列表，停止修改")
@@ -248,11 +262,12 @@ def main() -> None:
         raise ValueError("本脚本仅适用于 macOS Claude Desktop 3P")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ref", help="与本次下载一致的发布提交 SHA")
+    parser.add_argument("--source", choices=MARKETPLACE_URLS, help="官方插件来源；新装默认 github，已有合法来源默认保留")
     args = parser.parse_args()
     if args.ref and not re.fullmatch(r"[0-9a-fA-F]{40}", args.ref):
         raise ValueError("发布 ref 必须是完整提交 SHA")
     config_dir = Path.home() / "Library/Application Support/Claude-3p/configLibrary"
-    print(install(config_dir, resolve_ref=(lambda: args.ref.lower()) if args.ref else None))
+    print(install(config_dir, resolve_ref=(lambda: args.ref.lower()) if args.ref else None, source=args.source))
     print("请在 Claude 的 Customize → Connectors 核对 openagent；配置写入不等于运行中的 Claude 已加载。")
     print("请执行已安装的 openagent-connector-auth.py login，首次在浏览器确认三项权限；随后用 status 核对。")
     print("helper 独立授权，不复用 CLI 或 Desktop 原生 OAuth 凭据；不要无参数运行并展示其认证头。")

@@ -34,17 +34,11 @@ For the terminal Claude Code plugin connection, confirm support with `claude mcp
 
 This path requires command access to the host Mac and the installed `~/Library/Application Support/OpenAgent/Claude/openagent-connector-auth.py`. If unavailable, use an explicitly exposed Host authentication action for this Connector or report that automatic sign-in is unavailable; do not switch to CLI OAuth.
 
-Download `https://raw.githubusercontent.com/openagent-org/claude-plugin/rel/openagent-connector-auth.py` into a private temporary directory with `curl --fail --location --silent --show-error --proto '=https' --proto-redir '=https'`. Stop on download failure. Run `python3 "<downloaded-helper>" reauthorize` once. It uses the installed helper's lock, existing registration, and Keychain; it does not reinstall the Connector. Remove the temporary copy after the commands finish.
+Resolve `rel` of `https://github.com/openagent-org/claude-plugin.git` to a full 40-character commit SHA, or reuse the official source and SHA already retained for this loading attempt. Download `https://raw.githubusercontent.com/openagent-org/claude-plugin/<SHA>/openagent-connector-auth.py` into a private temporary directory with `curl --fail --location --silent --show-error --proto '=https' --proto-redir '=https'`. The fallback repository is `https://gitee.com/openagent-org/claude-plugin.git`; its corresponding file is `https://gitee.com/openagent-org/claude-plugin/raw/<SHA>/openagent-connector-auth.py`. An existing valid official source may continue without forcing a switch to GitHub; when starting from a previously installed Gitee source, the other official source is the fallback. Never switch back after this loading attempt has used its one fallback.
 
-If curl fails, request one retry outside the sandbox using the exact
-same command (Codex: sandbox_permissions="require_escalated",
-with a justification).
+Only DNS, connection, timeout, interrupted-transfer, or HTTP 5xx failures allow the assistant to try the fallback once. If initial resolution failed before any SHA was obtained, resolve the initial SHA there. Once obtained, retain the same SHA and path; never resolve another `rel` after a download failure. Keep the selected source and public SHA in the conversation instead of relying on shell variables across command calls. Stop on fallback failure, permission or approval denial, certificate errors, HTTP 401/403/404/429/451, or digest, syntax, execution, or OAuth errors. Do not retry outside the sandbox to bypass a denied permission or add another download attempt.
 
-On success, use the response; on execution failure, use the existing
-fallback. If approval is denied, continue without the manual.
-
-Count these steps as one loading attempt. Allow required approval prompts.
-
+After the complete download, validate Python syntax without execution (for example, `ast.parse`). Only then run `python3 "<downloaded-helper>" reauthorize` once. It uses the installed helper's lock, existing registration, and Keychain; it does not reinstall the Connector. Never pipe a download into execution or switch sources after execution failed or its outcome became unknown. Retain the temporary copy through the explicit `status` check below, then remove it.
 
 - `SIGN_IN_OPENED`: the page was opened; show the waiting message only while authorization is pending.
 - `SIGN_IN_AUTHORIZED`: this attempt's callback and token exchange succeeded; show the success message.

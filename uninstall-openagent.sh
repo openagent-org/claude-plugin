@@ -190,6 +190,7 @@ server_urls = {"https://oasn-ow.haimawan.com/mcp/v1/open-agent",
 server_names = {"openagent", "OpenAgent"}
 marketplace_urls = {
     "https://github.com/openagent-org/claude-plugin.git",
+    "https://gitee.com/openagent-org/claude-plugin.git",
     "https://oasn-ow.haimawan.com/git/openagent/claude-plugin.git",
 }
 
@@ -322,6 +323,7 @@ try:
                 if (source.get("source") != "git"
                         or source.get("url", "").removesuffix(".git") not in {
                             "https://github.com/openagent-org/claude-plugin",
+                            "https://gitee.com/openagent-org/claude-plugin",
                             "https://oasn-ow.haimawan.com/git/openagent/claude-plugin",
                         }
                         or known.get("installLocation") != str(market_dir)):
