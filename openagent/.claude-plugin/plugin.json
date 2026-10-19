@@ -1,0 +1,11 @@
+{
+  "name": "openagent",
+  "version": "0.1.44",
+  "description": "在 Claude Code Desktop 中发现、调用和管理 OpenAgent 专业 Agent，包含远程 MCP 与五个工作流 Skills。",
+  "author": {
+    "name": "OpenAgent Inc."
+  },
+  "homepage": "https://oasn-ow.haimawan.com",
+  "repository": "https://github.com/openagent-org/claude-plugin",
+  "keywords": ["openagent", "agent", "mcp", "claude", "skills"]
+}

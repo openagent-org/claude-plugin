@@ -1,0 +1,14 @@
+{
+  "name": "openagent-claude",
+  "description": "OpenAgent 的 Claude Code Desktop 插件，包含远程 MCP 和五个工作流 Skills。",
+  "owner": {
+    "name": "OpenAgent Inc."
+  },
+  "plugins": [
+    {
+      "name": "openagent",
+      "source": "./openagent",
+      "description": "在 Claude Code Desktop 中发现、调用和管理 OpenAgent 专业 Agent。"
+    }
+  ]
+}
