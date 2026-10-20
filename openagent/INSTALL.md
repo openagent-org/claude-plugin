@@ -43,43 +43,36 @@ claude plugin list
 
 下载首选 `https://github.com/openagent-org/claude-plugin.git`（`github`），备用为 `https://gitee.com/openagent-org/claude-plugin.git`（`gitee`）。由安装助手执行一次备用选择，不让用户选择网络地区；已有合法官方来源可继续使用，不为恢复主源而强制迁移；从此前已装 Gitee 开始时，另一官方来源是备用。本次加载已使用一次备用后不得回切。仅 DNS、连接、超时、传输中断或 HTTP 5xx 失败可尝试备用一次；权限或审批拒绝、证书错误、HTTP 401/403/404/429/451，以及摘要、语法、执行或 OAuth 错误均停止，不换源。备用也失败即停止。安装器本身不自动重试另一来源。
 
-选择来源时先只读当前生效 3P 配置中 OpenAgent Marketplace 的 `source`、`url`、`ref`、`installationPreference` 字段；不要输出整个配置或推理凭据。已有合法且仍可用的官方来源优先沿用，不能因命令示例为 `github` 就把它迁回。执行下方命令前，由助手在本次会话保存选定 `install_source` 和公开完整 SHA，并按实际值填写命令开头；首次尚未解析时 `install_sha` 留空。主源解析 `rel` 前发生上述网络失败时，可从备用确定初始 SHA；一旦得到 SHA，后续下载、备用下载和登记必须使用该 SHA 及原路径，不得采用备用 `rel` 的新 SHA（允许只读核对其是否等于已知 SHA）。命令在下载前输出这两个公开值；不要依赖不同命令调用共享 shell 变量。Gitee Raw 地址为 `https://gitee.com/openagent-org/claude-plugin/raw/<SHA>/<path>`。两份文件完整下载到临时目录并通过语法校验后才执行安装器一次。仅在确认安装器尚未执行的下载失败后，才可沿用 SHA、改来源再下载；禁止管道执行、`命令 || 换源执行` 或执行结果未知后重跑。后续登录、重启和卸载同样只对下载阶段适用此规则。
+选择来源时先只读当前生效 3P 配置中 OpenAgent Marketplace 的 `source`、`url`、`ref`、`installationPreference` 字段；不要输出整个配置或推理凭据。已有合法且仍可用的官方来源优先沿用，不能因命令示例为 `github` 就把它迁回。执行前将 `install_source` 填为本次选定来源，后续命令沿用该来源，不依赖不同命令调用共享 shell 变量。安装文件直接从 `rel` 下载；Gitee Raw 地址为 `https://gitee.com/openagent-org/claude-plugin/raw/rel/<path>`。两份文件完整下载到临时目录并通过语法校验后才执行安装器一次。仅在原命令已结束且确认安装器尚未执行的下载失败后，才可改来源补全下载，丢弃残片，不拼接输出；禁止管道执行、`命令 || 换源执行` 或执行结果未知后重跑。后续重启同样只对下载阶段适用此规则。
 
-然后从选定官方仓库的完整提交下载 [3P 配置脚本](https://github.com/openagent-org/claude-plugin/blob/rel/install-desktop-connector.py)和 `openagent-connector-auth.py`。将同一 SHA 和来源传入安装器，命令结束后清理临时文件：
+然后从选定官方仓库的 `rel` 下载 [3P 配置脚本](https://github.com/openagent-org/claude-plugin/blob/rel/install-desktop-connector.py)和 `openagent-connector-auth.py`。向安装器传入 `--ref rel` 和选定来源，命令结束后清理临时文件：
 
 ```bash
 (
   set -e
   install_source='github'
-  install_sha=''
   case "$install_source" in
-    github) install_repo='https://github.com/openagent-org/claude-plugin.git'; install_raw='https://raw.githubusercontent.com/openagent-org/claude-plugin' ;;
-    gitee) install_repo='https://gitee.com/openagent-org/claude-plugin.git'; install_raw='https://gitee.com/openagent-org/claude-plugin/raw' ;;
+    github) install_raw='https://raw.githubusercontent.com/openagent-org/claude-plugin/rel' ;;
+    gitee) install_raw='https://gitee.com/openagent-org/claude-plugin/raw/rel' ;;
     *) exit 1 ;;
   esac
-  if [ -z "$install_sha" ]; then
-    install_ref="$(git ls-remote "$install_repo" refs/heads/rel)"
-    install_sha="${install_ref%%[[:space:]]*}"
-  fi
-  case "$install_sha" in ''|*[!0-9a-f]*) exit 1 ;; esac
-  [ "${#install_sha}" -eq 40 ]
-  printf 'OPENAGENT_SOURCE=%s\nOPENAGENT_REF=%s\n' "$install_source" "$install_sha"
+  printf 'OPENAGENT_SOURCE=%s\n' "$install_source"
   install_dir="$(mktemp -d "${TMPDIR:-/tmp}/openagent-claude-install.XXXXXX")"
   trap 'rm -f -- "$install_dir/install-desktop-connector.py" "$install_dir/openagent-connector-auth.py"; rmdir -- "$install_dir"' EXIT
-  curl -fsSL --proto '=https' --proto-redir '=https' "$install_raw/$install_sha/install-desktop-connector.py" -o "$install_dir/install-desktop-connector.py"
-  curl -fsSL --proto '=https' --proto-redir '=https' "$install_raw/$install_sha/openagent-connector-auth.py" -o "$install_dir/openagent-connector-auth.py"
+  curl -fsSL --proto '=https' --proto-redir '=https' "$install_raw/install-desktop-connector.py" -o "$install_dir/install-desktop-connector.py"
+  curl -fsSL --proto '=https' --proto-redir '=https' "$install_raw/openagent-connector-auth.py" -o "$install_dir/openagent-connector-auth.py"
   python3 -c 'import ast, pathlib, sys; [ast.parse(pathlib.Path(path).read_bytes(), filename=path) for path in sys.argv[1:]]' "$install_dir/install-desktop-connector.py" "$install_dir/openagent-connector-auth.py"
-  python3 "$install_dir/install-desktop-connector.py" --ref "$install_sha" --source "$install_source"
+  python3 "$install_dir/install-desktop-connector.py" --ref rel --source "$install_source"
 )
 ```
 
-脚本将同目录 helper 持久安装到 `~/Library/Application Support/OpenAgent/Claude/openagent-connector-auth.py`，使用本次 Python 解释器的绝对 shebang；解释器路径含空白时明确失败，helper 路径含空格不受影响。随后增量写入当前 3P 配置的 `managedMcpServers` 和 `allowedPluginMarketplaces`：新装、master 或 rel 分支配置升级或旧域迁移使用传入提交并设置 `installationPreference: auto_install`；本次命令显式传入 `--ref` 时，已有精确 GitHub 或 Gitee 官方来源、合法完整 SHA 且自动安装的插件源也更新到本次提交；同一 SHA 和同一来源重复执行不改配置。`--source` 只接受 `github` 或 `gitee`；新装省略时默认 GitHub，已有合法来源未显式指定时保留。直接运行安装器且未传入 `--ref` 时保留已有合法固定提交，显式切换官方来源也不重新解析该固定提交。重新执行本节安装可将旧固定版本更新到当前 `rel`。旧自建官方来源 `https://oasn-ow.haimawan.com/git/openagent/claude-plugin.git` 会在备份后迁移到选定官方来源，并使用本次完整提交；未知同名来源停止，不覆盖。OpenAgent Connector 的旧原生 `oauth` 被替换为绝对路径 `headersHelper`，`headersHelperTtlSec=300`、`headersHelperRefreshBufferSec=60`，保留 `X-OASN-MCP-OAuth: required` 和 `X-OASN-MCP-Widget-Transport: claude-direct`；省略 `oauth`，不写 `oauth:false`。安装器不注册 OAuth 客户端，也不获取 Token；注册与授权在第 2 节的 helper `login` 中完成。配置写入前在同目录备份，备份可能含推理凭据，不要上传。脚本成功只证明文件与配置已写入，不证明运行中的 Claude 已加载 Connector 或插件。
+脚本将同目录 helper 持久安装到 `~/Library/Application Support/OpenAgent/Claude/openagent-connector-auth.py`，使用本次 Python 解释器的绝对 shebang；解释器路径含空白时明确失败，helper 路径含空格不受影响。随后增量写入当前 3P 配置的 `managedMcpServers` 和 `allowedPluginMarketplaces`：`--ref rel` 由安装器内部解析所选官方来源的当前发布提交，并以宿主要求的完整提交设置 `installationPreference: auto_install`；不将分支名 `rel` 直接写成自动安装版本。新装、旧分支配置及旧固定版本都会更新到当前发布版本，同一版本和同一来源重复执行不改配置。`--source` 只接受 `github` 或 `gitee`；新装省略时默认 GitHub，已有合法来源未显式指定时保留。直接运行安装器且未传入 `--ref` 时仍保留已有合法固定版本。旧自建官方来源 `https://oasn-ow.haimawan.com/git/openagent/claude-plugin.git` 会在备份后迁移到选定官方来源；未知同名来源停止，不覆盖。OpenAgent Connector 的旧原生 `oauth` 被替换为绝对路径 `headersHelper`，`headersHelperTtlSec=300`、`headersHelperRefreshBufferSec=60`，保留 `X-OASN-MCP-OAuth: required` 和 `X-OASN-MCP-Widget-Transport: claude-direct`；省略 `oauth`，不写 `oauth:false`。安装器不注册 OAuth 客户端，也不获取 Token；注册与授权在第 2 节的 helper `login` 中完成。配置写入前在同目录备份，备份可能含推理凭据，不要上传。脚本成功只证明文件与配置已写入，不证明运行中的 Claude 已加载 Connector 或插件。
 
-根据刚才的 `claude plugin marketplace list` 核对 `openagent-claude`：不存在时，按本次选定来源执行 `claude plugin marketplace add 'https://github.com/openagent-org/claude-plugin.git#rel'` 或 `claude plugin marketplace add 'https://gitee.com/openagent-org/claude-plugin.git#rel'`；已存在且为这两个精确官方来源之一、分支为 `rel` 时可继续使用，不强制切回 GitHub；同名旧官方来源按下方迁移，其他来源停止，不覆盖。原生 CLI 保留 `#rel` 更新机制，不能据此声称严格固定 SHA。新增或换源前，用所选仓库的 `git ls-remote` 核对 `refs/heads/rel` 等于本次已保存的 SHA；备用不同步则停止，不重新选择版本。下载后，从宿主返回的实际 Marketplace 路径运行 `git -C "<returned-marketplace-path>" rev-parse HEAD` 并核对同一 SHA；不猜测缓存路径，无法取得可靠提交证据时停止并报告无法核对。HEAD 一致仅证明本次下载提交，不证明插件加载或安装成功。
+根据刚才的 `claude plugin marketplace list` 核对 `openagent-claude`：不存在时，按本次选定来源执行 `claude plugin marketplace add 'https://github.com/openagent-org/claude-plugin.git#rel'` 或 `claude plugin marketplace add 'https://gitee.com/openagent-org/claude-plugin.git#rel'`；已存在且为这两个精确官方来源之一、分支为 `rel` 时可继续使用，不强制切回 GitHub；同名旧官方来源按下方迁移，其他来源停止，不覆盖。原生 CLI 保留 `#rel` 更新机制，回读实际登记的官方来源、分支及插件安装和启用状态。
 
-根据 `claude plugin list` 核对 `openagent@openagent-claude`：未安装时才执行 `claude plugin install openagent@openagent-claude --scope user`；已安装且启用时跳过；已安装但停用时停止并报告状态，不把它算作安装完成。每次执行后重新读取对应列表确认结果；Marketplace 下载未结束时等待原命令，不并发重复安装。仅当确认原命令已结束且失败限于上述可备用的下载错误时，先回读 Marketplace 和插件状态，再对精确官方、用户范围登记按下方步骤切换一次来源，沿用原 SHA；登记已与本次选定来源一致才直接继续；已决定换源且来源不同则执行下方迁移步骤。部分状态或副作用不明时停止。不得重跑已成功的配置、登录或重启步骤。插件包含五个 Skills，无须另行复制：`openagent-first-task-router`、`openagent-guide-agent`、`openagent-search-agent`、`openagent-run-agent`、`openagent-query-account`。
+根据 `claude plugin list` 核对 `openagent@openagent-claude`：未安装时才执行 `claude plugin install openagent@openagent-claude --scope user`；已安装且启用时跳过；已安装但停用时停止并报告状态，不把它算作安装完成。每次执行后重新读取对应列表确认结果；Marketplace 下载未结束时等待原命令，不并发重复安装。仅当确认原命令已结束且失败限于上述可备用的下载错误时，先回读 Marketplace 和插件状态，再对精确官方、用户范围登记按下方步骤切换一次来源；登记已与本次选定来源一致才直接继续；已决定换源且来源不同则执行下方迁移步骤。部分状态或副作用不明时停止。不得重跑已成功的配置、登录或重启步骤。插件包含五个 Skills，无须另行复制：`openagent-first-task-router`、`openagent-guide-agent`、`openagent-search-agent`、`openagent-run-agent`、`openagent-query-account`。
 
-旧官方源迁移或本次下载备用切换：仅对 `openagent-claude` 的精确官方用户范围登记操作。旧 `master` 允许 GitHub 或旧自建 `https://oasn-ow.haimawan.com/git/openagent/claude-plugin.git`；本次明确下载失败的 `rel` 允许上述 GitHub 或 Gitee。执行 `claude plugin marketplace remove openagent-claude --scope user`，回读 `claude plugin marketplace list`；确认该登记已移除后，按所选来源执行上方 `marketplace add`，回读确认来源及 `rel`，并核对实际下载 HEAD。若仍有其他作用域同名登记，停止，不扩大删除范围。随后重新读取 `claude plugin list`：缺失时安装，仍已安装且启用时执行 `claude plugin update openagent@openagent-claude --scope user`，停用时停止并报告。每步失败先停止并记录；只能按上述下载规则恢复，且从实际登记状态继续，不重复移除已匹配的新源。不执行卸载脚本、`mcp logout` 或清理 OAuth 配置。其他同名来源仍按冲突处理。
+旧官方源迁移或本次下载备用切换：仅对 `openagent-claude` 的精确官方用户范围登记操作。旧 `master` 允许 GitHub 或旧自建 `https://oasn-ow.haimawan.com/git/openagent/claude-plugin.git`；本次明确下载失败的 `rel` 允许上述 GitHub 或 Gitee。执行 `claude plugin marketplace remove openagent-claude --scope user`，回读 `claude plugin marketplace list`；确认该登记已移除后，按所选来源执行上方 `marketplace add`，回读确认来源及 `rel`。若仍有其他作用域同名登记，停止，不扩大删除范围。随后重新读取 `claude plugin list`：缺失时安装，仍已安装且启用时执行 `claude plugin update openagent@openagent-claude --scope user`，停用时停止并报告。每步失败先停止并记录；只能按上述下载规则恢复，且从实际登记状态继续，不重复移除已匹配的新源。不执行卸载脚本、`mcp logout` 或清理 OAuth 配置。其他同名来源仍按冲突处理。
 
 迁移旧 REL 安装时，目标 MCP 必须为 `https://oasn-ow.haimawan.com/mcp/v1/open-agent`。第 1 步脚本仅将已知旧地址 `https://oasn-pre.haimawan.com/mcp/v1/open-agent` 迁移到新地址并刷新固定的插件源提交；不复用旧域名授权。自定义地址仍停止覆盖。终端 CLI 插件的旧地址迁移见文末可选步骤，不作为 Desktop 3P 安装前置。
 
@@ -113,7 +106,7 @@ helper `login` 先复用权限和有效期符合要求的既有凭据；需要�
 
 命令必须来自当前 Claude Code Bash，保留宿主提供的 `CLAUDE_CODE_SESSION_ID`；脚本用它唯一关联本次会话和仍未完成的 Bash 调用。缺少该上下文时停止，不从其他会话复制 ID，也不在普通终端伪造环境变量。只对下面这一条命令请求 **Bash 沙箱外执行**：若实际 Bash 工具提供 `dangerouslyDisableSandbox`，在工具调用参数中设为 `true`，遵循宿主权限流程。它不是 shell 环境变量，也不是 Python 参数。以宿主显示的沙箱外执行状态为准；`sandbox.allowUnsandboxedCommands=false` 或管理策略阻止时，停止自动重启，报告需要用户正常退出并重新打开应用，后续按第 5 节核对后决定人工发送。不要自动修改安全配置、放行所有 Python 命令或用 `--dangerously-skip-permissions` 替代沙箱外执行。参见 [Claude 官方沙箱说明](https://code.claude.com/docs/en/sandboxing)。
 
-执行前将下方 `install_source` 和 `install_sha` 填为第 1 节已保存的实际来源和完整 SHA，不能保留占位符；下载失败仅按第 1 节规则处理，重启已提交或结果未知时不得换源重跑。
+执行前将下方 `install_source` 填为第 1 节选定的实际来源，从该来源的 `rel` 下载重启脚本。下载失败仅按第 1 节规则处理，重启已提交或结果未知时不得换源重跑。
 
 ```bash
 (
@@ -123,15 +116,12 @@ helper `login` 先复用权限和有效期符合要求的既有凭据；需要�
   restart_file="$(mktemp "${TMPDIR:-/tmp}/openagent-claude-restart.XXXXXX")"
   trap 'rm -f -- "$restart_file"' EXIT
   install_source='github'
-  install_sha='<FULL_SHA_FROM_STEP_1>'
-  case "$install_sha" in ''|*[!0-9a-f]*) exit 1 ;; esac
-  [ "${#install_sha}" -eq 40 ]
   case "$install_source" in
-    github) install_raw='https://raw.githubusercontent.com/openagent-org/claude-plugin' ;;
-    gitee) install_raw='https://gitee.com/openagent-org/claude-plugin/raw' ;;
+    github) install_raw='https://raw.githubusercontent.com/openagent-org/claude-plugin/rel' ;;
+    gitee) install_raw='https://gitee.com/openagent-org/claude-plugin/raw/rel' ;;
     *) exit 1 ;;
   esac
-  curl -fsSL --proto '=https' --proto-redir '=https' "$install_raw/$install_sha/restart-desktop.py" -o "$restart_file"
+  curl -fsSL --proto '=https' --proto-redir '=https' "$install_raw/restart-desktop.py" -o "$restart_file"
   python3 -c 'import ast, pathlib, sys; ast.parse(pathlib.Path(sys.argv[1]).read_bytes(), filename=sys.argv[1])' "$restart_file"
   python3 "$restart_file" --message-file "$message_file"
 )

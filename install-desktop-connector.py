@@ -117,9 +117,9 @@ def write_helper(destination: Path, payload: bytes) -> bool:
 
 
 def install(config_dir: Path, helper_dir: Path = None, helper_source: Path = None,
-            resolve_ref=None, source: str = None) -> str:
+            resolve_ref=None, source: str = None, refresh_release: bool = False) -> str:
     """增量安装 Connector 和插件源；冲突不写，更新前备份且保留其他配置。"""
-    explicit_ref = resolve_ref is not None
+    explicit_ref = resolve_ref is not None or refresh_release
     if source is not None and source not in MARKETPLACE_URLS:
         raise ValueError("插件来源只能是 github 或 gitee")
     if helper_dir is None:
@@ -261,13 +261,14 @@ def main() -> None:
     if sys.platform != "darwin":
         raise ValueError("本脚本仅适用于 macOS Claude Desktop 3P")
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--ref", help="与本次下载一致的发布提交 SHA")
+    parser.add_argument("--ref", help="rel 表示由安装器解析当前发布提交；也兼容完整提交 SHA")
     parser.add_argument("--source", choices=MARKETPLACE_URLS, help="官方插件来源；新装默认 github，已有合法来源默认保留")
     args = parser.parse_args()
-    if args.ref and not re.fullmatch(r"[0-9a-fA-F]{40}", args.ref):
-        raise ValueError("发布 ref 必须是完整提交 SHA")
+    if args.ref and args.ref != "rel" and not re.fullmatch(r"[0-9a-fA-F]{40}", args.ref):
+        raise ValueError("发布 ref 必须是 rel 或完整提交 SHA")
     config_dir = Path.home() / "Library/Application Support/Claude-3p/configLibrary"
-    print(install(config_dir, resolve_ref=(lambda: args.ref.lower()) if args.ref else None, source=args.source))
+    print(install(config_dir, resolve_ref=(lambda: args.ref.lower()) if args.ref and args.ref != "rel" else None,
+                  source=args.source, refresh_release=args.ref == "rel"))
     print("请在 Claude 的 Customize → Connectors 核对 openagent；配置写入不等于运行中的 Claude 已加载。")
     print("请执行已安装的 openagent-connector-auth.py login，首次在浏览器确认三项权限；随后用 status 核对。")
     print("helper 独立授权，不复用 CLI 或 Desktop 原生 OAuth 凭据；不要无参数运行并展示其认证头。")
