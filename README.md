@@ -32,3 +32,9 @@ curl -fsSL --proto '=https' --proto-redir '=https' 'https://raw.githubuserconten
 ```
 
 The uninstaller asks for confirmation and removes the recognized OpenAgent installation and its local authorization state. It preserves other plugins and Connectors and stops on conflicting configuration.
+
+If you have already confirmed that you want to uninstall OpenAgent, use this command to skip the confirmation prompt:
+
+```bash
+curl -fsSL --proto '=https' --proto-redir '=https' 'https://raw.githubusercontent.com/openagent-org/claude-plugin/rel/uninstall-openagent.sh' | bash -s -- --yes
+```

@@ -171,6 +171,114 @@ remove_owned_directory() {
   fi
 }
 
+manage_user_marketplace_registry() {
+  # CLI 的用户声明与缓存登记可能分离；只修复已确认无其他作用域引用的官方登记。
+  python3 - "$1" "$PLUGIN_ROOT" <<'PY'
+import json
+import os
+from pathlib import Path
+import stat
+import sys
+import tempfile
+from datetime import datetime, timezone
+
+mode, root = sys.argv[1], Path(sys.argv[2])
+name, plugin_id = "openagent-claude", "openagent@openagent-claude"
+registry = root / "known_marketplaces.json"
+official_urls = {
+    "https://github.com/openagent-org/claude-plugin",
+    "https://gitee.com/openagent-org/claude-plugin",
+    "https://oasn-ow.haimawan.com/git/openagent/claude-plugin",
+}
+
+def load(path):
+    if path.resolve() != path or not stat.S_ISREG(path.lstat().st_mode):
+        raise ValueError("登记或设置不是普通文件，或包含符号链接")
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise ValueError("登记或设置不是 JSON 对象")
+    return value
+
+def declared(value):
+    markets, plugins = value.get("extraKnownMarketplaces", {}), value.get("enabledPlugins", {})
+    if not isinstance(markets, dict) or not isinstance(plugins, dict):
+        raise ValueError("设置中的插件声明格式异常")
+    return name in markets or plugin_id in plugins
+
+def official(source):
+    return (isinstance(source, dict) and source.get("source") == "git"
+            and isinstance(source.get("url"), str)
+            and source["url"].removesuffix(".git") in official_urls)
+
+try:
+    config = Path(os.environ.get("CLAUDE_CONFIG_DIR", str(Path.home() / ".claude"))).resolve()
+    user_settings = config / "settings.json"
+    if user_settings.exists() or user_settings.is_symlink():
+        user = load(user_settings)
+        has_declaration = declared(user)
+        markets = user.get("extraKnownMarketplaces", {})
+        declaration = markets.get(name)
+        if name in markets and (not isinstance(declaration, dict) or not official(declaration.get("source"))):
+            raise ValueError("用户设置中的同名 Marketplace 来源不匹配")
+        if mode == "remove" and has_declaration:
+            raise ValueError("用户设置仍声明 OpenAgent，不能只删除缓存登记")
+    settings = {config / "managed-settings.json",
+                Path("/Library/Application Support/ClaudeCode/managed-settings.json"),
+                Path("/etc/claude-code/managed-settings.json")}
+    for directory in (Path.cwd(), *Path.cwd().parents):
+        settings.update(directory / ".claude" / filename
+                        for filename in ("settings.json", "settings.local.json"))
+    for path in settings - {user_settings}:
+        if (path.exists() or path.is_symlink()) and declared(load(path)):
+            raise ValueError("其他作用域仍声明 OpenAgent；请先在对应作用域处理")
+    installed = root / "installed_plugins.json"
+    if installed.exists() or installed.is_symlink():
+        entries = load(installed).get("plugins", {}).get(plugin_id, [])
+        if not isinstance(entries, list) or any(entry.get("scope") != "user" for entry in entries):
+            raise ValueError("OpenAgent 仍有非用户范围或无法确认作用域的安装记录")
+    if not registry.exists() and not registry.is_symlink():
+        if mode == "remove":
+            raise ValueError("CLI 仍报告 Marketplace，但没有可核实的用户缓存登记")
+        sys.exit(0)
+    value = load(registry)
+    if name not in value:
+        if mode == "remove":
+            raise ValueError("CLI 残留与用户缓存登记不一致")
+        sys.exit(0)
+    entry = value[name]
+    if (registry.stat().st_uid != os.getuid() or not official(entry.get("source"))
+            or entry.get("installLocation") != str(root / "marketplaces" / name)):
+        raise ValueError("Marketplace 来源、位置或归属不匹配")
+    if mode == "check":
+        sys.exit(0)
+    original = registry.read_bytes()
+    if json.loads(original) != value:
+        raise ValueError("缓存登记在核对期间变化，请重新检查")
+    del value[name]
+    backup = registry.with_name(f"{registry.name}.bak-openagent-uninstall-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')}")
+    with os.fdopen(os.open(backup, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "wb") as saved:
+        saved.write(original)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=root, delete=False) as handle:
+            temporary = Path(handle.name)
+            os.fchmod(handle.fileno(), 0o600)
+            json.dump(value, handle, ensure_ascii=False, indent=2)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        if registry.read_bytes() != original:
+            raise ValueError("缓存登记在写入前变化，已保留现场")
+        temporary.replace(registry)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+    print("已备份并移除 OpenAgent 用户 Marketplace 的残留登记，保留其他条目。")
+except (OSError, ValueError, TypeError, AttributeError):
+    sys.exit("错误：无法安全清理 OpenAgent 用户 Marketplace 登记；请检查来源、路径及其他作用域声明，保留现场。")
+PY
+}
+
 manage_3p_config() {
   python3 - "$1" <<'PY'
 import json
@@ -602,6 +710,7 @@ THREE_P_STATUS="$(manage_3p_config check)" || exit 1
 RESTART_STATUS="$(manage_restart_receipts check)" || exit 1
 DESKTOP_STATUS="$(manage_desktop_files check)" || exit 1
 HELPER_STATUS="$(manage_headers_helper check)" || exit 1
+manage_user_marketplace_registry check || exit 1
 if [[ "$THREE_P_STATUS" == "present" || "$DESKTOP_STATUS" == "present" || "$HELPER_STATUS" == "present" ]]; then
   if pgrep -x Claude >/dev/null; then
     echo "错误：Claude Desktop 仍在运行；请完全退出后再清理 3P MCP 和托管插件。" >&2
@@ -731,11 +840,7 @@ if [[ "$MARKETPLACE_CONFIGURED" == true ]]; then
       printf '%s\n' "$MARKETPLACE_REMOVE_OUTPUT"
     fi
   elif grep -Fq "is not declared in user settings" <<<"$MARKETPLACE_REMOVE_OUTPUT"; then
-    echo "用户范围已无 $MARKETPLACE_NAME 声明，继续清理同名 Marketplace 的残留作用域..."
-    if ! "$CLAUDE" plugin marketplace remove "$MARKETPLACE_NAME"; then
-      echo "错误：Marketplace 残留作用域移除失败；缓存保持不变。" >&2
-      exit 1
-    fi
+    echo "用户范围已无 $MARKETPLACE_NAME 声明，继续核对用户缓存登记..."
   else
     if [[ -n "$MARKETPLACE_REMOVE_OUTPUT" ]]; then
       printf '%s\n' "$MARKETPLACE_REMOVE_OUTPUT" >&2
@@ -748,8 +853,18 @@ if [[ "$MARKETPLACE_CONFIGURED" == true ]]; then
     exit 1
   fi
   if grep -Fq "$MARKETPLACE_NAME" <<<"$MARKETPLACES_JSON"; then
-    echo "错误：复核时仍发现 ${MARKETPLACE_NAME}；缓存保持不变。" >&2
-    exit 1
+    manage_user_marketplace_registry remove || {
+      echo "错误：复核时仍发现 ${MARKETPLACE_NAME}；缓存保持不变。" >&2
+      exit 1
+    }
+    if ! MARKETPLACES_JSON="$("$CLAUDE" plugin marketplace list --json)"; then
+      echo "错误：残留登记处理后无法复核 Marketplace；缓存保持不变。" >&2
+      exit 1
+    fi
+    if grep -Fq "$MARKETPLACE_NAME" <<<"$MARKETPLACES_JSON"; then
+      echo "错误：复核时仍发现 ${MARKETPLACE_NAME}；缓存保持不变。" >&2
+      exit 1
+    fi
   fi
 fi
 
