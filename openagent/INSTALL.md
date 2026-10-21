@@ -2,7 +2,7 @@
 
 本文供执行安装的 Claude 模型使用。执行任何安装命令前，先确认当前会话实际所在的客户端、会话模式及 MCP 来源。其他客户端请返回 [OpenAgent 安装汇总页](https://oasn-ow.haimawan.com/plugin)，找到对应安装链接；无法确认时停止安装并询问用户。
 
-附件上传需要 Node.js 20+。插件内置固定版本 COS Node.js SDK 及依赖，打包在执行 Skill 的 `scripts/cos_sdk.cjs.gz`；`scripts/cos_upload.cjs` 和 `scripts/cos_sdk.lock.json` 与该压缩包一并安装。首次需要 SDK 时，脚本离线校验并解压到 `scripts/.cos-sdk/<压缩包 SHA-256>/cos_sdk.cjs`；后续校验 SHA-256 后复用，缓存缺失、损坏或压缩包更新时自动重新解压，退出后保留缓存。`scripts/` 目录需当前用户可写。清理上传检查点不加载 SDK。不搜索宿主 SDK，不运行 `npm`，也不下载依赖。缺少安装文件或压缩包校验失败时停止并修复插件安装。
+附件上传需要 Node.js 20+。插件内置固定版本 COS Node.js SDK 及依赖，打包在执行 Skill 的 `scripts/cos_sdk.cjs.gz`；`scripts/cos_upload.cjs` 和 `scripts/cos_sdk.lock.json` 与该压缩包一并安装。首次需要 SDK 时，脚本离线校验并解压到 `scripts/.cos-sdk/node_modules/<压缩包 SHA-256>/cos_sdk.cjs`；后续校验 SHA-256 后复用，缓存缺失、损坏或压缩包更新时自动重新解压，退出后保留缓存。`scripts/` 目录需当前用户可写。清理上传检查点不加载 SDK。不搜索宿主 SDK，不运行 `npm`，也不下载依赖。缺少安装文件或压缩包校验失败时停止并修复插件安装。
 
 ## 安装前：确认会话模式
 
