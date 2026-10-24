@@ -20,7 +20,7 @@ import time
 from urllib import error, parse, request
 
 
-BASE_URL = "https://oasn-ow.haimawan.com"
+BASE_URL = "https://openagent.org"
 RESOURCE = BASE_URL + "/mcp/v1/open-agent"
 SCOPE = "agent.discover agent.invoke artifact.read"
 DIRECTORY = Path.home() / "Library/Application Support/OpenAgent/Claude"

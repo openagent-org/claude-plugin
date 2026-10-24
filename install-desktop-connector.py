@@ -17,19 +17,17 @@ from datetime import datetime, timezone
 SERVER = {
     "name": "openagent",
     "transport": "http",
-    "url": "https://oasn-ow.haimawan.com/mcp/v1/open-agent",
+    "url": "https://openagent.org/mcp/v1/open-agent",
     "headers": {"X-OASN-MCP-OAuth": "required", "X-OASN-MCP-Widget-Transport": "claude-direct"},
 }
 OAUTH_SCOPE = "agent.discover agent.invoke artifact.read"
 HELPER_NAME = "openagent-connector-auth.py"
 HELPER_MARKER = b"# OpenAgent Claude headersHelper v1"
-LEGACY_REL_URL = "https://oasn-pre.haimawan.com/mcp/v1/open-agent"
 MARKETPLACE = {
     "source": "git",
     "url": "https://github.com/openagent-org/claude-plugin.git",
     "expectedName": "openagent-claude",
 }
-LEGACY_MARKETPLACE_URL = "https://oasn-ow.haimawan.com/git/openagent/claude-plugin.git"
 MARKETPLACE_URLS = {
     "github": MARKETPLACE["url"],
     "gitee": "https://gitee.com/openagent-org/claude-plugin.git",
@@ -139,7 +137,7 @@ def install(config_dir: Path, helper_dir: Path = None, helper_source: Path = Non
     marketplaces = profile.get("allowedPluginMarketplaces", [])
     if not isinstance(marketplaces, list) or not all(isinstance(item, dict) for item in marketplaces):
         raise ValueError("allowedPluginMarketplaces 不是插件源列表，停止修改")
-    official_urls = (*MARKETPLACE_URLS.values(), LEGACY_MARKETPLACE_URL)
+    official_urls = MARKETPLACE_URLS.values()
     matching = [item for item in marketplaces if item.get("url") in official_urls
                 or item.get("expectedName") == MARKETPLACE["expectedName"]]
     if matching and (len(matching) != 1 or matching[0].get("source") != "git"
@@ -155,7 +153,6 @@ def install(config_dir: Path, helper_dir: Path = None, helper_source: Path = Non
         resolve_ref = lambda: marketplace_ref(source)
     pinned = existing_marketplace and (existing_marketplace.get("installationPreference") == "auto_install"
                                       and re.fullmatch(r"[0-9a-fA-F]{40}", str(existing_marketplace.get("ref", ""))))
-    migrating_marketplace = existing_marketplace and existing_marketplace.get("url") == LEGACY_MARKETPLACE_URL
     switching_source = existing_marketplace and existing_marketplace.get("url") != selected_marketplace["url"]
     if pinned and not switching_source and not explicit_ref:
         marketplace_action = ""
@@ -163,7 +160,7 @@ def install(config_dir: Path, helper_dir: Path = None, helper_source: Path = Non
         if existing_marketplace and not pinned and (existing_marketplace.get("ref") not in ("master", "rel") or
                 existing_marketplace.get("installationPreference", "available") != "available"):
             raise ValueError("已有冲突的 OpenAgent 插件源，停止覆盖")
-        ref = existing_marketplace["ref"] if pinned and not explicit_ref and not migrating_marketplace else resolve_ref()
+        ref = existing_marketplace["ref"] if pinned and not explicit_ref else resolve_ref()
         pinned_marketplace = {**(existing_marketplace or {}), **selected_marketplace,
                               "ref": ref, "installationPreference": "auto_install"}
         marketplace_action = ""
@@ -177,14 +174,13 @@ def install(config_dir: Path, helper_dir: Path = None, helper_source: Path = Non
     if not isinstance(servers, list) or not all(isinstance(item, dict) for item in servers):
         raise ValueError("managedMcpServers 不是服务器列表，停止修改")
     named = [item for item in servers if item.get("name") == SERVER["name"]]
-    if any(item.get("url") in (SERVER["url"], LEGACY_REL_URL) and item.get("name") != SERVER["name"] for item in servers):
+    if any(item.get("url") == SERVER["url"] and item.get("name") != SERVER["name"] for item in servers):
         raise ValueError("目标地址已被其他 Connector 使用，停止重复添加")
     if named:
         if (len(named) != 1 or named[0].get("transport") != SERVER["transport"]
-                or named[0].get("url") not in (SERVER["url"], LEGACY_REL_URL)):
+                or named[0].get("url") != SERVER["url"]):
             raise ValueError("已有同名但配置不同的 OpenAgent Connector，停止覆盖")
         current = named[0]
-        migrating = current["url"] == LEGACY_REL_URL
         if (("oauth" in current and current["oauth"] is not True
              and current["oauth"] != {"scope": OAUTH_SCOPE} and not installed_oauth(current["oauth"]))
                 or ("headersHelper" in current and ("oauth" in current or any(
@@ -215,9 +211,6 @@ def install(config_dir: Path, helper_dir: Path = None, helper_source: Path = Non
             action = ""
         else:
             profile["managedMcpServers"] = [updated if item is current else item for item in servers]
-            if migrating and existing_marketplace and not marketplace_action:
-                # 旧域名安装固定过发布提交；迁移时同步刷新，避免 Desktop 继续加载旧 MCP。
-                existing_marketplace["ref"] = resolve_ref()
             action = "升级 OpenAgent Connector 为 headersHelper"
     else:
         profile["managedMcpServers"] = [*servers, {**SERVER, **helper_config}]

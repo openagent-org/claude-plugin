@@ -188,7 +188,6 @@ registry = root / "known_marketplaces.json"
 official_urls = {
     "https://github.com/openagent-org/claude-plugin",
     "https://gitee.com/openagent-org/claude-plugin",
-    "https://oasn-ow.haimawan.com/git/openagent/claude-plugin",
 }
 
 def load(path):
@@ -293,13 +292,11 @@ from datetime import datetime, timezone
 
 mode = sys.argv[1]
 directory = Path.home() / "Library/Application Support/Claude-3p/configLibrary"
-server_urls = {"https://oasn-ow.haimawan.com/mcp/v1/open-agent",
-               "https://oasn-pre.haimawan.com/mcp/v1/open-agent"}
+server_urls = {"https://openagent.org/mcp/v1/open-agent"}
 server_names = {"openagent", "OpenAgent"}
 marketplace_urls = {
     "https://github.com/openagent-org/claude-plugin.git",
     "https://gitee.com/openagent-org/claude-plugin.git",
-    "https://oasn-ow.haimawan.com/git/openagent/claude-plugin.git",
 }
 
 def load(path):
@@ -432,7 +429,6 @@ try:
                         or source.get("url", "").removesuffix(".git") not in {
                             "https://github.com/openagent-org/claude-plugin",
                             "https://gitee.com/openagent-org/claude-plugin",
-                            "https://oasn-ow.haimawan.com/git/openagent/claude-plugin",
                         }
                         or known.get("installLocation") != str(market_dir)):
                     raise ValueError("托管 Marketplace 来源或位置冲突")

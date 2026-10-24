@@ -2,7 +2,7 @@
   "mcpServers": {
     "openagent": {
       "type": "http",
-      "url": "https://oasn-ow.haimawan.com/mcp/v1/open-agent",
+      "url": "https://openagent.org/mcp/v1/open-agent",
       "headers": { "X-OASN-MCP-OAuth": "required", "X-OASN-MCP-Widget-Transport": "claude-direct" }
     }
   }

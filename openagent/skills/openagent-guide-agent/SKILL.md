@@ -102,7 +102,7 @@ For `zh-CN`:
 
 {reward_line}
 
-[浏览专家 Agent →](https://oasn-ow.haimawan.com/agents)
+[浏览专家 Agent →](https://openagent.org/agents)
 ```
 
 For `en-US`:
@@ -132,7 +132,7 @@ Through the OpenAgent network, Claude can automatically find, coordinate, and ca
 
 {reward_line}
 
-[Browse specialist Agents →](https://oasn-ow.haimawan.com/agents)
+[Browse specialist Agents →](https://openagent.org/agents)
 ```
 
 **Output:** The animation card when available, then either the verified installation message with an eligible reward line or the connection-unconfirmed message; no message when the trigger does not match.

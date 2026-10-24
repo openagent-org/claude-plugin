@@ -1,6 +1,6 @@
 # 安装 OpenAgent 到 Claude
 
-本文供执行安装的 Claude 模型使用。执行任何安装命令前，先确认当前会话实际所在的客户端、会话模式及 MCP 来源。其他客户端请返回 [OpenAgent 安装汇总页](https://oasn-ow.haimawan.com/plugin)，找到对应安装链接；无法确认时停止安装并询问用户。
+本文供执行安装的 Claude 模型使用。执行任何安装命令前，先确认当前会话实际所在的客户端、会话模式及 MCP 来源。其他客户端请返回 [OpenAgent 安装汇总页](https://openagent.org/plugin)，找到对应安装链接；无法确认时停止安装并询问用户。
 
 附件上传需要 Node.js 20+。插件内置固定版本 COS Node.js SDK 及依赖，打包在执行 Skill 的 `scripts/cos_sdk.cjs.gz`；`scripts/cos_upload.cjs` 和 `scripts/cos_sdk.lock.json` 与该压缩包一并安装。首次需要 SDK 时，脚本离线校验并解压到 `scripts/.cos-sdk/node_modules/<压缩包 SHA-256>/cos_sdk.cjs`；后续校验 SHA-256 后复用，缓存缺失、损坏或压缩包更新时自动重新解压，退出后保留缓存。`scripts/` 目录需当前用户可写。清理上传检查点不加载 SDK。不搜索宿主 SDK，不运行 `npm`，也不下载依赖。缺少安装文件或压缩包校验失败时停止并修复插件安装。
 
@@ -11,7 +11,7 @@
 > 当前会话不能执行这项本机安装。请切换到 Claude 的 Code 模式，选择 Local（本机）和一个本机文件夹，然后在新会话中发送下面的安装请求。
 
 ```text
-请阅读 https://oasn-ow.haimawan.com/zh-CN/claude，先确认当前为 Claude Code 的 macOS 本机 Local 会话，再按指南实际安装并验证 OpenAgent。
+请阅读 https://openagent.org/zh-CN/claude，先确认当前为 Claude Code 的 macOS 本机 Local 会话，再按指南实际安装并验证 OpenAgent。
 ```
 
 如果用户已明确提供 `agent_id`、Agent 名称或业务需求，将这些内容另起一段原样追加到同一可复制消息中；没有则不补写。不使用第 4 节的“已安装”启动消息替代安装请求，也不声称已经安装或自动切换。当前普通 3P Cowork 没有可用的 Code 自动交接工具；不要猜测工具、修改隐藏开关、调用私有 IPC 或用定时任务模拟安装前切换。
@@ -66,17 +66,17 @@ claude plugin list
 )
 ```
 
-脚本将同目录 helper 持久安装到 `~/Library/Application Support/OpenAgent/Claude/openagent-connector-auth.py`，使用本次 Python 解释器的绝对 shebang；解释器路径含空白时明确失败，helper 路径含空格不受影响。随后增量写入当前 3P 配置的 `managedMcpServers` 和 `allowedPluginMarketplaces`：`--ref rel` 由安装器内部解析所选官方来源的当前发布提交，并以宿主要求的完整提交设置 `installationPreference: auto_install`；不将分支名 `rel` 直接写成自动安装版本。新装、旧分支配置及旧固定版本都会更新到当前发布版本，同一版本和同一来源重复执行不改配置。`--source` 只接受 `github` 或 `gitee`；新装省略时默认 GitHub，已有合法来源未显式指定时保留。直接运行安装器且未传入 `--ref` 时仍保留已有合法固定版本。旧自建官方来源 `https://oasn-ow.haimawan.com/git/openagent/claude-plugin.git` 会在备份后迁移到选定官方来源；未知同名来源停止，不覆盖。OpenAgent Connector 的旧原生 `oauth` 被替换为绝对路径 `headersHelper`，`headersHelperTtlSec=300`、`headersHelperRefreshBufferSec=60`，保留 `X-OASN-MCP-OAuth: required` 和 `X-OASN-MCP-Widget-Transport: claude-direct`；省略 `oauth`，不写 `oauth:false`。安装器不注册 OAuth 客户端，也不获取 Token；注册与授权在第 2 节的 helper `login` 中完成。配置写入前在同目录备份，备份可能含推理凭据，不要上传。脚本成功只证明文件与配置已写入，不证明运行中的 Claude 已加载 Connector 或插件。
+脚本将同目录 helper 持久安装到 `~/Library/Application Support/OpenAgent/Claude/openagent-connector-auth.py`，使用本次 Python 解释器的绝对 shebang；解释器路径含空白时明确失败，helper 路径含空格不受影响。随后增量写入当前 3P 配置的 `managedMcpServers` 和 `allowedPluginMarketplaces`：`--ref rel` 由安装器内部解析所选官方来源的当前发布提交，并以宿主要求的完整提交设置 `installationPreference: auto_install`；不将分支名 `rel` 直接写成自动安装版本。新装、旧分支配置及旧固定版本都会更新到当前发布版本，同一版本和同一来源重复执行不改配置。`--source` 只接受 `github` 或 `gitee`；新装省略时默认 GitHub，已有合法来源未显式指定时保留。直接运行安装器且未传入 `--ref` 时仍保留已有合法固定版本。插件源仅接受上述 GitHub 或 Gitee 精确地址；其他同名来源停止，不覆盖。OpenAgent Connector 的旧原生 `oauth` 被替换为绝对路径 `headersHelper`，`headersHelperTtlSec=300`、`headersHelperRefreshBufferSec=60`，保留 `X-OASN-MCP-OAuth: required` 和 `X-OASN-MCP-Widget-Transport: claude-direct`；省略 `oauth`，不写 `oauth:false`。安装器不注册 OAuth 客户端，也不获取 Token；注册与授权在第 2 节的 helper `login` 中完成。配置写入前在同目录备份，备份可能含推理凭据，不要上传。脚本成功只证明文件与配置已写入，不证明运行中的 Claude 已加载 Connector 或插件。
 
-根据刚才的 `claude plugin marketplace list` 核对 `openagent-claude`：不存在时，按本次选定来源执行 `claude plugin marketplace add 'https://github.com/openagent-org/claude-plugin.git#rel'` 或 `claude plugin marketplace add 'https://gitee.com/openagent-org/claude-plugin.git#rel'`；已存在且为这两个精确官方来源之一、分支为 `rel` 时可继续使用，不强制切回 GitHub；同名旧官方来源按下方迁移，其他来源停止，不覆盖。原生 CLI 保留 `#rel` 更新机制，回读实际登记的官方来源、分支及插件安装和启用状态。
+根据刚才的 `claude plugin marketplace list` 核对 `openagent-claude`：不存在时，按本次选定来源执行 `claude plugin marketplace add 'https://github.com/openagent-org/claude-plugin.git#rel'` 或 `claude plugin marketplace add 'https://gitee.com/openagent-org/claude-plugin.git#rel'`；已存在且为这两个精确官方来源之一、分支为 `rel` 时可继续使用，不强制切回 GitHub；上述官方来源的旧分支按下方迁移，其他来源停止，不覆盖。原生 CLI 保留 `#rel` 更新机制，回读实际登记的官方来源、分支及插件安装和启用状态。
 
 根据 `claude plugin list` 核对 `openagent@openagent-claude`：未安装时才执行 `claude plugin install openagent@openagent-claude --scope user`；已安装且启用时跳过；已安装但停用时停止并报告状态，不把它算作安装完成。每次执行后重新读取对应列表确认结果；Marketplace 下载未结束时等待原命令，不并发重复安装。仅当确认原命令已结束且失败限于上述可备用的下载错误时，先回读 Marketplace 和插件状态，再对精确官方、用户范围登记按下方步骤切换一次来源；登记已与本次选定来源一致才直接继续；已决定换源且来源不同则执行下方迁移步骤。部分状态或副作用不明时停止。不得重跑已成功的配置、登录或重启步骤。插件包含五个 Skills，无须另行复制：`openagent-first-task-router`、`openagent-guide-agent`、`openagent-search-agent`、`openagent-run-agent`、`openagent-query-account`。
 
-旧官方源迁移或本次下载备用切换：仅对 `openagent-claude` 的精确官方用户范围登记操作。旧 `master` 允许 GitHub 或旧自建 `https://oasn-ow.haimawan.com/git/openagent/claude-plugin.git`；本次明确下载失败的 `rel` 允许上述 GitHub 或 Gitee。执行 `claude plugin marketplace remove openagent-claude --scope user`，回读 `claude plugin marketplace list`；确认该登记已移除后，按所选来源执行上方 `marketplace add`，回读确认来源及 `rel`。若仍有其他作用域同名登记，停止，不扩大删除范围。随后重新读取 `claude plugin list`：缺失时安装，仍已安装且启用时执行 `claude plugin update openagent@openagent-claude --scope user`，停用时停止并报告。每步失败先停止并记录；只能按上述下载规则恢复，且从实际登记状态继续，不重复移除已匹配的新源。不执行卸载脚本、`mcp logout` 或清理 OAuth 配置。其他同名来源仍按冲突处理。
+官方源旧分支迁移或本次下载备用切换：仅对 `openagent-claude` 的精确官方用户范围登记操作。旧 `master` 仅允许上述 GitHub 或 Gitee；本次明确下载失败的 `rel` 允许上述 GitHub 或 Gitee。执行 `claude plugin marketplace remove openagent-claude --scope user`，回读 `claude plugin marketplace list`；确认该登记已移除后，按所选来源执行上方 `marketplace add`，回读确认来源及 `rel`。若仍有其他作用域同名登记，停止，不扩大删除范围。随后重新读取 `claude plugin list`：缺失时安装，仍已安装且启用时执行 `claude plugin update openagent@openagent-claude --scope user`，停用时停止并报告。每步失败先停止并记录；只能按上述下载规则恢复，且从实际登记状态继续，不重复移除已匹配的新源。不执行卸载脚本、`mcp logout` 或清理 OAuth 配置。其他同名来源仍按冲突处理。
 
-迁移旧 REL 安装时，目标 MCP 必须为 `https://oasn-ow.haimawan.com/mcp/v1/open-agent`。第 1 步脚本仅将已知旧地址 `https://oasn-pre.haimawan.com/mcp/v1/open-agent` 迁移到新地址并刷新固定的插件源提交；不复用旧域名授权。自定义地址仍停止覆盖。终端 CLI 插件的旧地址迁移见文末可选步骤，不作为 Desktop 3P 安装前置。
+目标 MCP 必须为 `https://openagent.org/mcp/v1/open-agent`。第 1 步脚本只接受这一地址；同名 Connector 使用其他地址时停止，不覆盖配置或复用其授权。终端 CLI 插件更新见文末可选步骤，不作为 Desktop 3P 安装前置。
 
-插件 MCP 和桌面 3P Connector 使用独立 client 与 grant，不复制彼此 Token。Desktop 3P 默认只完成第 2 节的 helper 登录；只有用户需要在终端 CLI 中使用 OpenAgent 时，才执行文末可选的 CLI 登录。插件和 Skills 安装不要求先完成 CLI OAuth。卸载器继续识别新旧 REL 地址；另安全清理专属 helper、`.auth.lock` 和 Keychain 整项，未知文件保留，两者均不远端撤销授权。
+插件 MCP 和桌面 3P Connector 使用独立 client 与 grant，不复制彼此 Token。Desktop 3P 默认只完成第 2 节的 helper 登录；只有用户需要在终端 CLI 中使用 OpenAgent 时，才执行文末可选的 CLI 登录。插件和 Skills 安装不要求先完成 CLI OAuth。卸载器仅识别当前 MCP 地址和上述 GitHub、Gitee 官方来源；另安全清理专属 helper、`.auth.lock` 和 Keychain 整项，未知文件保留，两者均不远端撤销授权。
 
 ## 2. 登录 Desktop Connector
 
@@ -206,7 +206,7 @@ OpenAgent 安装尚未完成：{简短原因}。
 
 仅当用户需要在终端 Claude Code CLI 中使用 OpenAgent 时执行本节；CLI 登录及检查结果不作为上述 Desktop 3P 安装完成或重启的门禁，不影响插件和 Skills 安装。
 
-先用 `claude mcp get plugin:openagent:openagent` 核对插件 MCP 地址为 `https://oasn-ow.haimawan.com/mcp/v1/open-agent`。插件已安装且启用但仍使用旧地址时，不得按“已安装”跳过：依次执行 `claude plugin marketplace update openagent-claude`、`claude plugin update openagent@openagent-claude`，再用 `claude mcp get plugin:openagent:openagent` 核对新地址；仍为旧地址时停止 CLI 登录。更新方式参见 [Claude 官方插件管理说明](https://code.claude.com/docs/en/discover-plugins)。
+先用 `claude mcp get plugin:openagent:openagent` 核对插件 MCP 地址为 `https://openagent.org/mcp/v1/open-agent`。插件已安装且启用但仍使用旧地址时，不得按“已安装”跳过：依次执行 `claude plugin marketplace update openagent-claude`、`claude plugin update openagent@openagent-claude`，再用 `claude mcp get plugin:openagent:openagent` 核对新地址；仍为旧地址时停止 CLI 登录。更新方式参见 [Claude 官方插件管理说明](https://code.claude.com/docs/en/discover-plugins)。
 
 先确认命令工具能够保留并等待同一进程，并用 `claude mcp login --help` 确认 CLI 支持登录。优先使用工具实际提供的 PTY/TTY 选项；若标准输入不是终端，在本机 macOS 使用系统 `/usr/bin/script` 为子进程分配伪终端。只对插件提供的 MCP 发起一次登录，并等待浏览器授权和命令结束：
 
