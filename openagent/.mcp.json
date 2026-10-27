@@ -3,7 +3,7 @@
     "openagent": {
       "type": "http",
       "url": "https://openagent.org/mcp/v1/open-agent",
-      "headers": { "X-OASN-MCP-OAuth": "required", "X-OASN-MCP-Widget-Transport": "claude-direct" }
+      "headers": { "X-OASN-MCP-OAuth": "required", "X-OASN-MCP-Widget-Transport": "claude-direct", "X-OASN-Client-Source": "claude" }
     }
   }
 }

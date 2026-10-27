@@ -18,7 +18,7 @@ SERVER = {
     "name": "openagent",
     "transport": "http",
     "url": "https://openagent.org/mcp/v1/open-agent",
-    "headers": {"X-OASN-MCP-OAuth": "required", "X-OASN-MCP-Widget-Transport": "claude-direct"},
+    "headers": {"X-OASN-MCP-OAuth": "required", "X-OASN-MCP-Widget-Transport": "claude-direct", "X-OASN-Client-Source": "claude"},
 }
 OAUTH_SCOPE = "agent.discover agent.invoke artifact.read"
 HELPER_NAME = "openagent-connector-auth.py"
@@ -199,11 +199,16 @@ def install(config_dir: Path, helper_dir: Path = None, helper_source: Path = Non
         transports = [key for key in headers if key.lower() == "x-oasn-mcp-widget-transport"]
         if len(transports) > 1 or (transports and headers[transports[0]] != "claude-direct"):
             raise ValueError("已有 Claude 直连请求标记冲突，停止覆盖")
+        sources = [key for key in headers if key.lower() == "x-oasn-client-source"]
+        if len(sources) > 1 or (sources and headers[sources[0]] != "claude"):
+            raise ValueError("已有客户端来源标记冲突，停止覆盖")
         updated_headers = dict(headers)
         if not markers:
             updated_headers["X-OASN-MCP-OAuth"] = "required"
         if not transports:
             updated_headers["X-OASN-MCP-Widget-Transport"] = "claude-direct"
+        if not sources:
+            updated_headers["X-OASN-Client-Source"] = "claude"
         updated = {**current, "url": SERVER["url"], "headers": updated_headers, **helper_config}
         # oauth 存在时 Claude 不使用 helper 的 Authorization，迁移必须完全移除此字段。
         updated.pop("oauth", None)

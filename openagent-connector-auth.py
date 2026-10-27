@@ -370,7 +370,7 @@ def login(store, reauthorize=False):
         port = server.server_address[1]
         callback = f"http://127.0.0.1:{port}/callback"
         if not state:
-            metadata = {"client_name": "OpenAgent Claude headersHelper", "redirect_uris": [callback],
+            metadata = {"client_name": "OpenAgent Claude headersHelper", "client_source": "claude", "redirect_uris": [callback],
                         "grant_types": ["authorization_code", "refresh_token"], "response_types": ["code"],
                         "token_endpoint_auth_method": "none", "scope": SCOPE}
             registered = post_json("/owner-oauth/register", metadata, is_json=True)
