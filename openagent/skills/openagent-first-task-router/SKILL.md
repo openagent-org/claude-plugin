@@ -94,6 +94,8 @@ Follow the orchestration defined in Workflow and transition between stages only 
 
 `status_update=false`
 
+First, if the user only wants to find, recommend, select, or browse Agents, with or without explicit search terms and no business task to decompose or execute, pass the original request to [openagent-search-agent](../openagent-search-agent/SKILL.md) as a direct user search and exit this router before the checks below.
+
 Determine whether OpenAgent discovery would materially improve the task.
 
 - Return `not_passed` when the request requires local-only execution.
